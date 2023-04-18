@@ -1,0 +1,93 @@
+---
+- name: Playbook to install MicroK8s
+  hosts: localhost
+  become: true
+  gather_facts: yes
+  tasks:
+
+    - name: Disable Auto updates on snap
+      command:
+        cmd: snap refresh --hold
+      register: result
+    
+    - name: Verify the snap --hold
+      assert: 
+        that:
+          - "'Auto-refresh of all snaps held indefinitely' in result.stdout"
+    
+    - name: Automatic apt update --hold
+      lineinfile:
+        dest: /etc/apt/apt.conf.d/20auto-upgrades
+        regexp: '^\s*"APT::Periodic::Unattended-Upgrade"\s*";'
+        line: 'APT::Periodic::Unattended-Upgrade "0";'
+    
+    - name: Install MicroK8s
+      community.general.snap : 
+        name: microk8s
+        classic: yes
+        channel: 1.27
+
+    - name: usermodf
+      user:
+        name: "{{ ansible_user_id }}"
+        append: yes
+        groups: microk8s
+
+    - name: Configure
+      ansible.builtin.file:
+        path: ~/.kube
+        group: microk8s
+        owner: "{{ ansible_user_id }}"
+        recurse: yes
+        force: yes
+    
+    # - name: Reboot the machine (Wait for 5 min)
+    #   reboot:
+    #     reboot_timeout: 60
+
+    # - name: Reboot host and wait for it to restart
+    #   reboot:
+    #     msg: "Reboot initiated by Ansible"
+    #     connect_timeout: 5
+    #     reboot_timeout: 600
+    #     pre_reboot_delay: 0
+    #     post_reboot_delay: 30
+    #     test_command: whoami
+
+
+    - name: Hold till done
+      command:
+        cmd: sudo microk8s status --wait-ready
+
+    - name: Enable addons
+      command:
+        cmd: sudo microk8s enable rbac dns storage metric-server
+    
+    - name: ufw enable and reject defult
+      community.general.ufw:
+        state: enabled
+        policy: reject
+
+    - name: allow port 22 (SSH)
+      community.general.ufw:
+        rule: allow
+        port: '22'
+        proto: tcp
+    
+    - name: allow port 80 (HTTP)
+      community.general.ufw:
+        rule: allow
+        port: '80'
+        proto: tcp
+
+    - name: allow port 443 (HTTPS)
+      community.general.ufw:
+        rule: allow
+        port: '443'
+        proto: tcp
+    
+    - name: allow port 16443 
+      community.general.ufw:
+        rule: allow
+        port: '16443'
+        proto: tcp
