@@ -13,5 +13,9 @@
 4. Ansible will connect to the target host and report the changes.
 
 ```` bash
-ansible-playbook  Playbook.yml
+ansible-playbook  playbook.yml
+````
+You can also use, -v flag to get command line outputs if you need to see what exactly is happening.
+```` bash
+ansible-playbook -v playbook.yml
 ````
